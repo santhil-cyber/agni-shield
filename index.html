@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AGNI-SHIELD — Transboundary Air Quality Intelligence</title>
+  <meta name="description"
+    content="AI-powered agricultural burning detection and AQI prediction for the Punjab-Haryana-Delhi transboundary airshed.">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #040810;
+      --surface: rgba(10, 16, 28, 0.8);
+      --border: rgba(255, 255, 255, 0.05);
+      --red: #ff4757;
+      --orange: #ff7f50;
+      --blue: #4a7dff;
+      --green: #26de81;
+      --teal: #0abde3;
+      --purple: #a855f7;
+      --text: #eef0f4;
+      --text2: #6b7894;
+      --muted: #3a4560;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background */
+    .ambient {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .ambient::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      left: -10%;
+      width: 60vw;
+      height: 60vw;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 71, 87, 0.06) 0%, transparent 65%);
+      animation: ambientDrift 25s ease-in-out infinite;
+    }
+
+    .ambient::after {
+      content: '';
+      position: absolute;
+      bottom: -20%;
+      right: -10%;
+      width: 50vw;
+      height: 50vw;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(74, 125, 255, 0.05) 0%, transparent 65%);
+      animation: ambientDrift 30s ease-in-out infinite reverse;
+    }
+
+    @keyframes ambientDrift {
+
+      0%,
+      100% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      33% {
+        transform: translate(5vw, -3vw) scale(1.05);
+      }
+
+      66% {
+        transform: translate(-3vw, 5vw) scale(0.95);
+      }
+    }
+
+    /* Grid lines (decorative) */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+    }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 48px;
+      height: 60px;
+      background: rgba(4, 8, 16, 0.75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .nav-logo {
+      width: 32px;
+      height: 32px;
+    }
+
+    .nav-name {
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+    }
+
+    .nav-name span {
+      color: var(--red);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text2);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: color 0.3s;
+      letter-spacing: 0.02em;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .nav-cta {
+      padding: 7px 18px;
+      border-radius: 6px;
+      background: var(--red);
+      color: #fff !important;
+      font-weight: 600 !important;
+      transition: all 0.3s;
+    }
+
+    .nav-cta:hover {
+      box-shadow: 0 4px 20px rgba(255, 71, 87, 0.3);
+      transform: translateY(-1px);
+    }
+
+    /* Hero */
+    .hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 120px 24px 60px;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px 5px 6px;
+      border-radius: 20px;
+      background: rgba(255, 71, 87, 0.08);
+      border: 1px solid rgba(255, 71, 87, 0.15);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 32px;
+      animation: fadeIn 0.8s ease;
+      letter-spacing: 0.03em;
+    }
+
+    .hero-tag .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      animation: pulse-ring 2s infinite;
+      box-shadow: 0 0 8px rgba(255, 71, 87, 0.5);
+    }
+
+    .hero-tag .tag-text {
+      color: var(--red);
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.5);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px rgba(255, 71, 87, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 71, 87, 0);
+      }
+    }
+
+    .hero h1 {
+      font-size: clamp(2.8rem, 5.5vw, 5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      max-width: 850px;
+      animation: slideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+    }
+
+    .hero h1 .accent {
+      background: linear-gradient(135deg, var(--red), var(--orange), #ff8a50);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero .sub {
+      max-width: 620px;
+      margin: 24px auto 0;
+      font-size: 1.05rem;
+      color: var(--text2);
+      line-height: 1.7;
+      font-weight: 400;
+      animation: slideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+    }
+
+    .hero .sub strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 12px;
+      margin-top: 44px;
+      animation: slideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      background: var(--red);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 8px 28px rgba(255, 71, 87, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .btn-primary svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-ghost:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Metrics bar */
+    .metrics {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      gap: 1px;
+      margin: 0 auto;
+      max-width: 900px;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      animation: slideUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.55s both;
+    }
+
+    .metric {
+      flex: 1;
+      text-align: center;
+      padding: 24px 16px;
+      background: var(--surface);
+    }
+
+    .metric:first-child {
+      border-radius: 12px 0 0 12px;
+    }
+
+    .metric:last-child {
+      border-radius: 0 12px 12px 0;
+    }
+
+    .metric .num {
+      font-size: 1.8rem;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.02em;
+    }
+
+    .metric .lab {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* Section */
+    section {
+      position: relative;
+      z-index: 1;
+      padding: 100px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    section h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    section .desc {
+      color: var(--text2);
+      max-width: 560px;
+      font-size: 0.95rem;
+      margin-bottom: 48px;
+    }
+
+    /* Feature grid */
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .feat {
+      background: var(--surface);
+      padding: 32px 28px;
+      transition: background 0.3s;
+    }
+
+    .feat:hover {
+      background: rgba(14, 22, 40, 0.9);
+    }
+
+    .feat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    .feat-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .feat h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .feat p {
+      font-size: 0.82rem;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    /* Pipeline */
+    .pipeline-section {
+      padding-top: 0;
+    }
+
+    .pipeline {
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .pipe {
+      flex: 1;
+      background: var(--surface);
+      padding: 28px 20px;
+      position: relative;
+      text-align: center;
+    }
+
+    .pipe::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 30%;
+      height: 40%;
+      width: 1px;
+      background: linear-gradient(transparent, var(--muted), transparent);
+    }
+
+    .pipe:last-child::after {
+      display: none;
+    }
+
+    .pipe-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 14px;
+    }
+
+    .pipe h4 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 0.02em;
+    }
+
+    .pipe p {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 80px 24px 100px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-card {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 56px 40px;
+      border-radius: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+    }
+
+    .cta-card h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .cta-card p {
+      color: var(--text2);
+      margin-bottom: 28px;
+      font-size: 0.9rem;
+    }
+
+    /* Footer */
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 28px 24px;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Scroll animations */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .feat-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .pipeline {
+        flex-direction: column;
+      }
+
+      .pipe::after {
+        display: none;
+      }
+
+      nav {
+        padding: 0 20px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .metrics {
+        flex-wrap: wrap;
+        border-radius: 8px;
+      }
+
+      .metric {
+        min-width: 33.33%;
+      }
+
+      .metric:first-child,
+      .metric:last-child {
+        border-radius: 0;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .feat-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h1 {
+        font-size: 2.2rem;
+      }
+
+      section {
+        padding: 60px 20px;
+      }
+
+      .metrics {
+        flex-direction: column;
+      }
+
+      .metric {
+        min-width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ambient"></div>
+  <div class="grid-bg"></div>
+
+  <!-- Nav -->
+  <nav>
+    <a class="nav-brand" href="#">
+      <svg class="nav-logo" viewBox="0 0 32 32" fill="none">
+        <path d="M16 2L5 28h22L16 2z" fill="#ff4757" opacity="0.7" />
+        <path d="M16 9L9 26h14L16 9z" fill="#ff6b81" />
+        <circle cx="16" cy="20" r="3" fill="#fff" opacity="0.9" />
+      </svg>
+      <div class="nav-name"><span>AGNI</span>-SHIELD</div>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#capabilities">Capabilities</a></li>
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="dashboard.html" class="nav-cta">Open Dashboard</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-tag">
+      <div class="pulse"></div>
+      <span class="tag-text">VIIRS Satellite Feed Active</span>
+      <span>&middot; Real-time monitoring</span>
+    </div>
+    <h1>
+      Predict Delhi's Air<br>
+      <span class="accent">Before It Burns</span>
+    </h1>
+    <p class="sub">
+      AI-powered early warning system for agricultural burning across Punjab and Haryana. Forecasts AQI impact on Delhi
+      <strong>24&ndash;72 hours</strong> in advance using satellite fire detection, wind trajectory modeling, and deep
+      learning.
+    </p>
+    <div class="hero-btns">
+      <a href="dashboard.html" class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>
+        Launch Command Center
+      </a>
+      <a href="#capabilities" class="btn-ghost">Explore Capabilities</a>
+    </div>
+  </section>
+
+  <!-- Metrics -->
+  <div class="metrics reveal">
+    <div class="metric">
+      <div class="num" style="color:var(--red)">156</div>
+      <div class="lab">Active Detections</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:var(--orange)">85%</div>
+      <div class="lab">Precision Rate</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:var(--blue)">72h</div>
+      <div class="lab">Forecast Window</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:var(--green)">10</div>
+      <div class="lab">CPCB Stations</div>
+    </div>
+    <div class="metric">
+      <div class="num" style="color:var(--purple)">87%</div>
+      <div class="lab">Model Accuracy</div>
+    </div>
+  </div>
+
+  <!-- Capabilities -->
+  <section id="capabilities">
+    <div class="section-label reveal">Capabilities</div>
+    <h2 class="reveal">Intelligent Monitoring Infrastructure</h2>
+    <p class="desc reveal">End-to-end pipeline integrating satellite data, atmospheric modeling, and machine learning
+      for policy-grade air quality intelligence.</p>
+
+    <div class="feat-grid reveal">
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(255,71,87,0.1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ff4757" stroke-width="2">
+            <path d="M12 2c1 4-2 6-2 10a4 4 0 108 0c0-4-3-6-2-10" />
+          </svg>
+        </div>
+        <h3>Real-Time Fire Detection</h3>
+        <p>VIIRS and MODIS satellite ingestion with agricultural land masking and DBSCAN spatial clustering at 3-hour
+          intervals.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(255,127,80,0.1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ff7f50" stroke-width="2">
+            <path d="M14 4v10.54a4 4 0 11-4 0V4a2 2 0 014 0z" />
+          </svg>
+        </div>
+        <h3>Heatmap Intensity Layer</h3>
+        <p>Toggle fire intensity heatmap overlay to visualize burn density and hotspot clustering across the entire
+          airshed corridor.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(10,189,227,0.1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#0abde3" stroke-width="2">
+            <path d="M9.59 4.59A2 2 0 1111 8H2m10.59 11.41A2 2 0 1014 16H2m15.73-8.27A2.5 2.5 0 1119.5 12H2" />
+          </svg>
+        </div>
+        <h3>Wind Trajectory Modeling</h3>
+        <p>HYSPLIT-style forward trajectory simulation with 72-hour path prediction, wind speed, PBL height, and
+          dispersion weighting.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(168,85,247,0.1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a7 7 0 017 7c0 2-1 3-2 4s-2 2-2 4" />
+            <path d="M12 2a7 7 0 00-7 7c0 2 1 3 2 4s2 2 2 4" />
+          </svg>
+        </div>
+        <h3>LSTM AQI Prediction</h3>
+        <p>Deep learning forecasts PM2.5 spikes with confidence bands. SHAP explainability attributes each prediction to
+          upstream factors.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(74,125,255,0.1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#4a7dff" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </div>
+        <h3>CPCB Station Grid</h3>
+        <p>10 Delhi monitoring stations mapped in real-time with per-station AQI, PM2.5, and PM10 readings color-coded
+          by severity.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(38,222,129,0.1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#26de81" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+        <h3>7-Day Time-Lapse</h3>
+        <p>Animated timelapse slider to scrub through the past week of fire detections and watch burn progression across
+          the corridor.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(255,211,42,0.1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ffd32a" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <circle cx="12" cy="17" r="0.5" />
+          </svg>
+        </div>
+        <h3>District Risk Scoring</h3>
+        <p>Composite 0-100 risk index per district using hotspot density, fire intensity, wind alignment, and
+          distance-weighted impact.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(10,189,227,0.08)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#0abde3" stroke-width="2">
+            <line x1="4" y1="21" x2="4" y2="14" />
+            <line x1="4" y1="10" x2="4" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12" y2="3" />
+            <line x1="20" y1="21" x2="20" y2="16" />
+            <line x1="20" y1="12" x2="20" y2="3" />
+          </svg>
+        </div>
+        <h3>Policy Simulator</h3>
+        <p>What-if analysis: model burn reduction scenarios and project AQI improvements using Monte Carlo methods with
+          confidence bands.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(38,222,129,0.08)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#26de81" stroke-width="2">
+            <path
+              d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75" />
+          </svg>
+        </div>
+        <h3>NDVI Crop Analysis</h3>
+        <p>Sentinel-2 satellite tiles showing pre-harvest vs post-burn vegetation. Interactive before/after comparison
+          per district.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pipeline -->
+  <section class="pipeline-section" id="pipeline">
+    <div class="section-label reveal">Data Pipeline</div>
+    <h2 class="reveal">Detection to Alert in Five Stages</h2>
+    <p class="desc reveal">Automated end-to-end workflow from satellite scan to actionable early warning.</p>
+
+    <div class="pipeline reveal">
+      <div class="pipe">
+        <div class="pipe-num" style="background:rgba(255,71,87,0.12); color:var(--red);">01</div>
+        <h4>Detect</h4>
+        <p>VIIRS satellite scans identify thermal anomalies. Agricultural masking filters crop burning from industrial
+          sources.</p>
+      </div>
+      <div class="pipe">
+        <div class="pipe-num" style="background:rgba(255,127,80,0.12); color:var(--orange);">02</div>
+        <h4>Classify</h4>
+        <p>XGBoost classifier distinguishes agricultural from non-agricultural fires using land cover, NDVI, and
+          spatiotemporal features.</p>
+      </div>
+      <div class="pipe">
+        <div class="pipe-num" style="background:rgba(74,125,255,0.12); color:var(--blue);">03</div>
+        <h4>Transport</h4>
+        <p>Wind trajectory simulation models pollutant corridor transport from Punjab and Haryana toward Delhi over the
+          72-hour window.</p>
+      </div>
+      <div class="pipe">
+        <div class="pipe-num" style="background:rgba(168,85,247,0.12); color:var(--purple);">04</div>
+        <h4>Predict</h4>
+        <p>LSTM model forecasts PM2.5 delta at Delhi stations with SHAP-explainable feature attribution and confidence
+          intervals.</p>
+      </div>
+      <div class="pipe">
+        <div class="pipe-num" style="background:rgba(38,222,129,0.12); color:var(--green);">05</div>
+        <h4>Alert</h4>
+        <p>Multi-channel threshold-triggered alerts issued 24-72 hours before predicted AQI breach events.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="cta-card reveal">
+      <h2>Ready to Monitor the Airshed?</h2>
+      <p>Access the real-time command center with interactive fire maps, AQI forecasts, wind trajectories, and policy
+        simulation tools.</p>
+      <a href="dashboard.html" class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>
+        Open Command Center
+      </a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    AGNI-SHIELD &middot; Punjab / Haryana / Delhi Transboundary Airshed Monitor &middot; Built for clean air
+  </footer>
+
+  <!-- Scroll reveal script -->
+  <script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+
+</body>
+
+</html>

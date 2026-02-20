@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGNI-SHIELD — Command Center</title>
+    <meta name="description"
+        content="Real-time agricultural burning detection, wind trajectory modeling, and AQI impact prediction dashboard for the Punjab-Haryana-Delhi transboundary airshed.">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet.heat -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- html2canvas for PDF export -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <a href="index.html" class="logo-icon" style="text-decoration:none">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <path d="M14 2L4 26h20L14 2z" fill="#ff4757" opacity="0.8" />
+                    <path d="M14 8L8 24h12L14 8z" fill="#ff6b81" />
+                    <circle cx="14" cy="18" r="3" fill="#fff" opacity="0.9" />
+                </svg>
+            </a>
+            <div>
+                <div class="header-title"><span>AGNI</span>-SHIELD</div>
+                <div class="header-subtitle">Punjab / Haryana / Delhi &middot; Transboundary Airshed Monitor</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="header-export-btn" id="btn-export-pdf">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                Export Report
+            </button>
+            <div class="header-status">
+                <div class="status-dot"></div>
+                <span>VIIRS Feed Active</span>
+            </div>
+            <div class="header-time" id="header-clock">--</div>
+        </div>
+    </header>
+
+    <!-- Dashboard Grid -->
+    <div class="dashboard">
+
+        <!-- Left Sidebar -->
+        <aside class="sidebar-left">
+
+            <!-- AQI Hero -->
+            <div class="card aqi-hero">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-chart"></span> Delhi AQI Now</div>
+                    <span class="card-badge badge-live">LIVE</span>
+                </div>
+                <div class="aqi-ring" id="aqi-ring">
+                    <svg viewBox="0 0 140 140">
+                        <circle class="ring-bg" cx="70" cy="70" r="58" />
+                        <circle class="ring-value" id="aqi-ring-value" cx="70" cy="70" r="58" />
+                    </svg>
+                    <div class="aqi-value">
+                        <div class="aqi-number" id="aqi-number">0</div>
+                        <div class="aqi-label" id="aqi-category">--</div>
+                    </div>
+                </div>
+                <div class="aqi-pollutants">
+                    <div class="pollutant-chip">
+                        <div class="label">PM2.5</div>
+                        <div class="val" id="pol-pm25" style="color:#ff4757">--</div>
+                    </div>
+                    <div class="pollutant-chip">
+                        <div class="label">PM10</div>
+                        <div class="val" id="pol-pm10" style="color:#ff7f50">--</div>
+                    </div>
+                    <div class="pollutant-chip">
+                        <div class="label">NO2</div>
+                        <div class="val" id="pol-no2" style="color:#ffd32a">--</div>
+                    </div>
+                    <div class="pollutant-chip">
+                        <div class="label">SO2</div>
+                        <div class="val" id="pol-so2" style="color:#70a1ff">--</div>
+                    </div>
+                    <div class="pollutant-chip">
+                        <div class="label">CO</div>
+                        <div class="val" id="pol-co" style="color:#7bed9f">--</div>
+                    </div>
+                    <div class="pollutant-chip">
+                        <div class="label">O3</div>
+                        <div class="val" id="pol-o3" style="color:#a29bfe">--</div>
+                    </div>
+                </div>
+                <div class="aqi-station">ITO, Delhi &middot; Updated 5 min ago</div>
+            </div>
+
+            <!-- Fire Stats -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-fire"></span> Fire Hotspots</div>
+                    <span class="card-badge badge-live">LIVE</span>
+                </div>
+                <div class="fire-stats-grid">
+                    <div class="stat-block highlight">
+                        <div class="stat-number" id="stat-total-fires" style="color:#ff4757">0</div>
+                        <div class="stat-label">Active Fires</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="stat-agri-fires" style="color:#ff6b81">0</div>
+                        <div class="stat-label">Agricultural</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="stat-non-agri" style="color:#ff7f50">0</div>
+                        <div class="stat-label">Non-Agri</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="stat-clusters" style="color:#ffa502">0</div>
+                        <div class="stat-label">Clusters</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="stat-avg-conf" style="color:#26de81">0</div>
+                        <div class="stat-label">Avg Confidence</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="stat-avg-frp" style="color:#eccc68">0</div>
+                        <div class="stat-label">Avg FRP (MW)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wind Info -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-wind"></span> Wind &amp; Transport</div>
+                    <span class="card-badge badge-forecast">Forecast</span>
+                </div>
+                <div class="wind-compass">
+                    <div class="compass-ring">
+                        <div class="compass-directions">
+                            <span class="n">N</span>
+                            <span class="s">S</span>
+                            <span class="e">E</span>
+                            <span class="w">W</span>
+                        </div>
+                        <div class="compass-arrow" id="compass-arrow"></div>
+                        <div class="compass-center"></div>
+                    </div>
+                </div>
+                <div class="wind-metrics">
+                    <div class="stat-block">
+                        <div class="stat-number" id="wind-speed" style="color:#0abde3; font-size:1rem">--</div>
+                        <div class="stat-label">Wind Speed</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="wind-dir" style="color:#0abde3; font-size:1rem">--</div>
+                        <div class="stat-label">Direction</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="wind-pbl" style="color:#eccc68; font-size:1rem">--</div>
+                        <div class="stat-label">PBL Height</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-number" id="wind-transport" style="color:#a29bfe; font-size:0.85rem">--</div>
+                        <div class="stat-label">Transport Time</div>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="card map-container" style="padding:0; overflow:hidden;">
+                <div id="map"></div>
+
+                <!-- Map overlay chips -->
+                <div class="map-overlay-stats">
+                    <div class="map-chip">
+                        <div class="chip-dot" style="background:#ff4757; animation: pulse-fire 2s infinite;"></div>
+                        <span>156 Active Fires</span>
+                    </div>
+                    <div class="map-chip">
+                        <div class="chip-dot" style="background:#4a7dff;"></div>
+                        <span>3 Corridors</span>
+                    </div>
+                    <div class="map-chip">
+                        <div class="chip-dot" style="background:#26de81;"></div>
+                        <span>10 CPCB Stations</span>
+                    </div>
+                    <button class="map-chip map-toggle-btn" id="btn-heatmap">
+                        <span class="icon icon-heat"></span>
+                        <span class="toggle-label">Heatmap</span>
+                    </button>
+                </div>
+
+                <!-- Timelapse slider -->
+                <div class="map-timelapse" id="timelapse-panel">
+                    <button class="timelapse-play-btn" id="timelapse-play">&#9654;</button>
+                    <div class="timelapse-track">
+                        <input type="range" id="timelapse-slider" min="0" max="6" value="6" step="1"
+                            class="timelapse-range">
+                    </div>
+                    <div class="timelapse-info">
+                        <span class="timelapse-day" id="timelapse-day">Today</span>
+                        <span class="timelapse-count" id="timelapse-count">--</span>
+                    </div>
+                </div>
+
+                <!-- Map legend -->
+                <div class="map-legend">
+                    <div style="font-weight:600; margin-bottom:6px; color:#8892a4;">Legend</div>
+                    <div class="legend-row">
+                        <div class="legend-dot" style="background:#ff4757;"></div> Agricultural Fire
+                    </div>
+                    <div class="legend-row">
+                        <div class="legend-dot" style="background:#ff7f50;"></div> Non-Agricultural
+                    </div>
+                    <div class="legend-row">
+                        <div class="legend-dot" style="background:#4a7dff;"></div> Delhi NCR
+                    </div>
+                    <div class="legend-row">
+                        <div class="legend-dot"
+                            style="background:transparent; border:1.5px dashed #ff7f50; width:9px; height:9px;"></div>
+                        Punjab
+                    </div>
+                    <div class="legend-row">
+                        <div class="legend-dot"
+                            style="background:transparent; border:1.5px dashed #ffd32a; width:9px; height:9px;"></div>
+                        Haryana
+                    </div>
+                    <div class="legend-row">
+                        <div class="legend-dot cpcb-legend-dot"></div> CPCB Station
+                    </div>
+                    <div class="legend-row">
+                        <div class="legend-dot"
+                            style="background:transparent; width:18px; height:2px; border-radius:0; background:linear-gradient(90deg, #ff4757, #ff6b81);">
+                        </div> Wind Path
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Panels -->
+        <div class="bottom-panels">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-chart"></span> AQI Forecast (72h)</div>
+                    <span class="card-badge badge-forecast">PM2.5 + AQI</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="aqi-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-target"></span> Fire Classification</div>
+                    <span class="card-badge badge-ai">XGBoost</span>
+                </div>
+                <div class="chart-container" style="height:180px;">
+                    <canvas id="fire-class-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- NDVI Panel -->
+        <div class="ndvi-section">
+            <div class="card ndvi-card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-leaf"></span> NDVI Before / After</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <select id="ndvi-district" class="ndvi-select"></select>
+                        <span class="card-badge badge-ai">Sentinel-2</span>
+                    </div>
+                </div>
+                <div class="ndvi-content">
+                    <div class="ndvi-compare">
+                        <div class="ndvi-img-wrap">
+                            <img id="ndvi-pre-img" src="img/ndvi-pre.png" alt="Pre-harvest NDVI" class="ndvi-img">
+                            <div id="ndvi-post-overlay" class="ndvi-post-overlay" style="clip-path: inset(0 0 0 50%)">
+                                <img id="ndvi-post-img" src="img/ndvi-post.png" alt="Post-burn NDVI" class="ndvi-img">
+                            </div>
+                            <div class="ndvi-label-pre">Pre-Harvest</div>
+                            <div class="ndvi-label-post">Post-Burn</div>
+                        </div>
+                        <input type="range" id="ndvi-compare-slider" min="0" max="100" value="50" class="ndvi-slider">
+                    </div>
+                    <div class="ndvi-stats">
+                        <div class="ndvi-stat-row">
+                            <div class="ndvi-stat">
+                                <div class="ndvi-stat-label">Pre-Harvest NDVI</div>
+                                <div class="ndvi-stat-val" id="ndvi-pre-val" style="color:#26de81">--</div>
+                            </div>
+                            <div class="ndvi-stat">
+                                <div class="ndvi-stat-label">Post-Burn NDVI</div>
+                                <div class="ndvi-stat-val" id="ndvi-post-val" style="color:#ff4757">--</div>
+                            </div>
+                        </div>
+                        <div class="ndvi-stat-row">
+                            <div class="ndvi-stat">
+                                <div class="ndvi-stat-label">Delta NDVI</div>
+                                <div class="ndvi-stat-val" id="ndvi-delta-val">--</div>
+                            </div>
+                            <div class="ndvi-stat">
+                                <div class="ndvi-stat-label">Burn Coverage</div>
+                                <div class="ndvi-stat-val" id="ndvi-burn-pct" style="color:#ff7f50">--</div>
+                            </div>
+                        </div>
+                        <div class="ndvi-stat-row">
+                            <div class="ndvi-stat">
+                                <div class="ndvi-stat-label">Acres Burned</div>
+                                <div class="ndvi-stat-val" id="ndvi-acres" style="color:#ffd32a">--</div>
+                            </div>
+                            <div class="ndvi-stat">
+                                <div class="ndvi-stat-label">Burning Period</div>
+                                <div class="ndvi-stat-val" id="ndvi-date" style="color:#8892a4; font-size:0.85rem;">--
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ndvi-scale">
+                            <div class="ndvi-scale-bar"></div>
+                            <div class="ndvi-scale-labels">
+                                <span>0.0 Bare</span>
+                                <span>0.5</span>
+                                <span>1.0 Dense</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <aside class="sidebar-right">
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-alert"></span> District Risk Index</div>
+                    <span class="card-badge badge-ai">Score 0-100</span>
+                </div>
+                <div class="risk-list" id="risk-list"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-bell"></span> Alert Engine</div>
+                    <span class="card-badge badge-live">Active</span>
+                </div>
+                <div class="alerts-list" id="alerts-list"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-brain"></span> Explainable AI</div>
+                    <span class="card-badge badge-ai">SHAP</span>
+                </div>
+                <div class="shap-bars" id="shap-bars"></div>
+                <div class="model-confidence">
+                    <div class="confidence-ring">
+                        <svg viewBox="0 0 50 50">
+                            <circle cx="25" cy="25" r="18" fill="none" stroke="rgba(255,255,255,0.05)"
+                                stroke-width="4" />
+                            <circle id="conf-ring-value" cx="25" cy="25" r="18" fill="none" stroke="#a855f7"
+                                stroke-width="4" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <div class="confidence-text">
+                        <div class="pct" id="conf-pct">0%</div>
+                        <div style="color:#8892a4; font-size:0.7rem;">Model Confidence</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon icon-sliders"></span> Policy Simulator</div>
+                    <span class="card-badge badge-forecast">What-If</span>
+                </div>
+                <div class="policy-slider-wrap">
+                    <div class="policy-slider-label">
+                        <span style="color:#8892a4">Burn Reduction</span>
+                        <span class="pct-val" id="policy-pct">0%</span>
+                    </div>
+                    <input type="range" id="policy-slider" min="0" max="100" value="30" step="5">
+                </div>
+                <div class="policy-results">
+                    <div class="policy-result-box delta">
+                        <div class="result-val" id="policy-aqi-delta">--</div>
+                        <div class="result-label">AQI Delta</div>
+                    </div>
+                    <div class="policy-result-box improvement">
+                        <div class="result-val" id="policy-aqi-improve">--</div>
+                        <div class="result-label">Improvement</div>
+                    </div>
+                </div>
+                <div class="policy-confidence" id="policy-conf-text">Monte Carlo confidence: --% (10,000 simulations)
+                </div>
+            </div>
+
+        </aside>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+
+</html>
